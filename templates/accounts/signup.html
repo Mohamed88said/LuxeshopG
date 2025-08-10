@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <h2>Choisissez votre type de compte</h2>
+            <div class="card-deck mt-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Acheteur</h5>
+                        <p class="card-text">Pour faire des achats sur notre plateforme</p>
+                        <a href="{% url 'accounts:buyer_signup' %}" class="btn btn-primary">S'inscrire comme acheteur</a>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Vendeur</h5>
+                        <p class="card-text">Pour vendre vos produits sur notre plateforme</p>
+                        <a href="{% url 'accounts:vendor_signup' %}" class="btn btn-success">S'inscrire comme vendeur</a>
+                    </div>
+                </div>
+            </div>
+            <p class="mt-4">Déjà un compte ? <a href="{% url 'account_login' %}">Connectez-vous</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
