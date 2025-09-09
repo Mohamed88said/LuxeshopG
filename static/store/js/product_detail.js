@@ -1,4 +1,18 @@
-console.log('Script product_detail.js chargé');
+// Définition locale de getCookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const productCarousel = new bootstrap.Carousel('#productCarousel-{{ product.id }}', { interval: 3000, pause: 'hover', wrap: true });
@@ -44,59 +58,150 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.querySelectorAll('.add-to-cart-detail').forEach(button => {
-        button.addEventListener('click', function(e) {
+    document.querySelectorAll('.add-to-cart-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const productId = this.getAttribute('data-product-id');
-            const csrfToken = getCookie('csrftoken');
+            const productId = this.querySelector('.add-to-cart-detail').getAttribute('data-product-id');
+            const quantity = this.querySelector('input[name="quantity"]').value;
+            const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            if (!quantity || quantity <= 0) {
+                if (typeof Toastify !== 'undefined') {
+                    Toastify({
+                        text: 'Veuillez sélectionner une quantité valide.',
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        backgroundColor: "#dc3545",
+                    }).showToast();
+                } else {
+                    alert('Veuillez sélectionner une quantité valide.');
+                }
+                return;
+            }
+
             fetch(`/cart/add/${productId}/`, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: `quantity=${encodeURIComponent(quantity)}`,
                 credentials: 'same-origin'
             })
-            .then(response => response.redirected ? window.location.href = response.url : response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Erreur HTTP ${response.status}: ${text}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
-                if (data && data.success) {
-                    const icon = this.querySelector('i');
-                    const originalText = this.innerHTML;
-                    this.innerHTML = '<i class="fas fa-check me-2"></i>Ajouté !';
-                    this.classList.remove('btn-primary');
-                    this.classList.add('btn-success');
+                if (data.success) {
+                    const button = this.querySelector('.add-to-cart-detail');
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '<i class="fas fa-check me-2"></i>Ajouté !';
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-success');
                     setTimeout(() => {
-                        this.innerHTML = originalText;
-                        this.classList.remove('btn-success');
-                        this.classList.add('btn-primary');
+                        button.innerHTML = originalText;
+                        button.classList.remove('btn-success');
+                        button.classList.add('btn-primary');
                     }, 2000);
                     const cartCount = document.querySelector('.cart-count');
-                    if (cartCount) cartCount.textContent = parseInt(cartCount.textContent) + 1;
-                } else if (data && data.error) alert(data.error);
+                    if (cartCount) cartCount.textContent = data.cart_count;
+                    if (typeof Toastify !== 'undefined') {
+                        Toastify({
+                            text: data.message,
+                            duration: 3000,
+                            close: true,
+                            gravity: "top",
+                            position: "right",
+                            backgroundColor: "#28a745",
+                        }).showToast();
+                    } else {
+                        alert(data.message);
+                    }
+                } else {
+                    if (typeof Toastify !== 'undefined') {
+                        Toastify({
+                            text: data.message || "Erreur lors de l'ajout au panier.",
+                            duration: 3000,
+                            close: true,
+                            gravity: "top",
+                            position: "right",
+                            backgroundColor: "#dc3545",
+                        }).showToast();
+                    } else {
+                        alert(data.message || "Erreur lors de l'ajout au panier.");
+                    }
+                }
             })
-            .catch(error => { console.error('Erreur:', error); alert('Une erreur est survenue lors de l\'ajout au panier'); });
+            .catch(error => {
+                console.error('Erreur:', error);
+                if (typeof Toastify !== 'undefined') {
+                    Toastify({
+                        text: `Erreur lors de l'ajout au panier: ${error.message}`,
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        backgroundColor: "#dc3545",
+                    }).showToast();
+                } else {
+                    alert(`Erreur lors de l'ajout au panier: ${error.message}`);
+                }
+            });
         });
     });
 
     document.querySelectorAll('.toggle-favorite').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('Bouton toggle-favorite cliqué pour productId:', this.getAttribute('data-product-id')); // Débogage
             const productId = this.getAttribute('data-product-id');
             const isFavorite = this.getAttribute('data-is-favorite') === 'true';
             const csrfToken = getCookie('csrftoken');
             const icon = this.querySelector('i');
             const textSpan = this.querySelector('span');
             
+            if (!csrfToken) {
+                console.error('CSRF token manquant');
+                if (typeof Toastify !== 'undefined') {
+                    Toastify({
+                        text: "Erreur: Jeton CSRF manquant.",
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        backgroundColor: "#dc3545",
+                    }).showToast();
+                } else {
+                    alert('Erreur: Jeton CSRF manquant.');
+                }
+                return;
+            }
+
             fetch(`/products/${productId}/toggle-favorite/`, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'same-origin'
             })
             .then(response => {
-                console.log('Réponse fetch:', response.status, response.statusText); // Débogage
-                if (!response.ok) throw new Error('Erreur réseau');
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Erreur HTTP ${response.status}: ${text}`);
+                    });
+                }
                 return response.json();
             })
             .then(data => {
-                console.log('Données reçues:', data); // Débogage
                 if (data.status === 'success') {
                     if (data.action === 'added') {
                         icon.classList.add('text-danger');
@@ -134,7 +239,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.setAttribute('data-is-favorite', data.action === 'added' ? 'true' : 'false');
                 }
             })
-            .catch(error => { console.error('Erreur:', error); alert('Une erreur est survenue lors de la mise à jour des favoris'); });
+            .catch(error => {
+                console.error('Erreur:', error);
+                if (typeof Toastify !== 'undefined') {
+                    Toastify({
+                        text: `Erreur lors de la mise à jour des favoris: ${error.message}`,
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        backgroundColor: "#dc3545",
+                    }).showToast();
+                } else {
+                    alert(`Erreur lors de la mise à jour des favoris: ${error.message}`);
+                }
+            });
         });
     });
 });

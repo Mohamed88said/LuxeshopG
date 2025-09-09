@@ -1,15 +1,4 @@
 Arborescence du projet :
-├── .
-│   ├── .env
-│   ├── .pytest_cache/
-│   │   ├── .gitignore
-│   │   ├── CACHEDIR.TAG
-│   │   ├── README.md
-│   │   ├── v/
-│   │   │   ├── cache/
-│   │   │   │   ├── lastfailed
-│   │   │   │   ├── nodeids
-│   ├── README.md
 │   ├── accounts/
 │   │   ├── __init__.py
 │   │   ├── adapters.py
@@ -102,21 +91,6 @@ Arborescence du projet :
 │   │   │   │   ├── loyalty_dashboard.html
 │   │   ├── tests.py
 │   │   ├── urls.py
-│   │   ├── views.py
-│   ├── media/
-│   │   ├── blog/
-│   │   │   ├── images/
-│   │   ├── delivery/
-│   │   │   ├── photos/
-│   │   ├── products/
-│   │   ├── profile_pics/
-│   │   ├── profile_pictures/
-│   │   ├── returns/
-│   │   │   ├── images/
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── pytest.ini
-│   ├── requirements.txt
 │   ├── returns/
 │   │   ├── __init__.py
 │   │   ├── admin.py
@@ -188,47 +162,7 @@ Arborescence du projet :
 │   │   │   │   ├── README.txt
 │   │   │   │   ├── calendar-icons.svg
 │   │   │   │   ├── gis/
-│   │   │   │   │   ├── move_vertex_off.svg
-│   │   │   │   │   ├── move_vertex_on.svg
-│   │   │   │   ├── icon-addlink.svg
-│   │   │   │   ├── icon-alert.svg
-│   │   │   │   ├── icon-calendar.svg
-│   │   │   │   ├── icon-changelink.svg
-│   │   │   │   ├── icon-clock.svg
-│   │   │   │   ├── icon-deletelink.svg
-│   │   │   │   ├── icon-no.svg
-│   │   │   │   ├── icon-unknown-alt.svg
-│   │   │   │   ├── icon-unknown.svg
-│   │   │   │   ├── icon-viewlink.svg
-│   │   │   │   ├── icon-yes.svg
-│   │   │   │   ├── inline-delete.svg
-│   │   │   │   ├── search.svg
-│   │   │   │   ├── selector-icons.svg
-│   │   │   │   ├── sorting-icons.svg
-│   │   │   │   ├── tooltag-add.svg
-│   │   │   │   ├── tooltag-arrowright.svg
 │   │   │   ├── js/
-│   │   │   │   ├── SelectBox.js
-│   │   │   │   ├── SelectFilter2.js
-│   │   │   │   ├── actions.js
-│   │   │   │   ├── admin/
-│   │   │   │   │   ├── DateTimeShortcuts.js
-│   │   │   │   │   ├── RelatedObjectLookups.js
-│   │   │   │   ├── autocomplete.js
-│   │   │   │   ├── calendar.js
-│   │   │   │   ├── cancel.js
-│   │   │   │   ├── change_form.js
-│   │   │   │   ├── collapse.js
-│   │   │   │   ├── core.js
-│   │   │   │   ├── filters.js
-│   │   │   │   ├── inlines.js
-│   │   │   │   ├── jquery.init.js
-│   │   │   │   ├── nav_sidebar.js
-│   │   │   │   ├── popup_response.js
-│   │   │   │   ├── prepopulate.js
-│   │   │   │   ├── prepopulate_init.js
-│   │   │   │   ├── theme.js
-│   │   │   │   ├── urlify.js
 │   │   │   │   ├── vendor/
 │   │   │   │   │   ├── jquery/
 │   │   │   │   │   │   ├── LICENSE.txt
@@ -237,67 +171,6 @@ Arborescence du projet :
 │   │   │   │   │   ├── select2/
 │   │   │   │   │   │   ├── LICENSE.md
 │   │   │   │   │   │   ├── i18n/
-│   │   │   │   │   │   │   ├── af.js
-│   │   │   │   │   │   │   ├── ar.js
-│   │   │   │   │   │   │   ├── az.js
-│   │   │   │   │   │   │   ├── bg.js
-│   │   │   │   │   │   │   ├── bn.js
-│   │   │   │   │   │   │   ├── bs.js
-│   │   │   │   │   │   │   ├── ca.js
-│   │   │   │   │   │   │   ├── cs.js
-│   │   │   │   │   │   │   ├── da.js
-│   │   │   │   │   │   │   ├── de.js
-│   │   │   │   │   │   │   ├── dsb.js
-│   │   │   │   │   │   │   ├── el.js
-│   │   │   │   │   │   │   ├── en.js
-│   │   │   │   │   │   │   ├── es.js
-│   │   │   │   │   │   │   ├── et.js
-│   │   │   │   │   │   │   ├── eu.js
-│   │   │   │   │   │   │   ├── fa.js
-│   │   │   │   │   │   │   ├── fi.js
-│   │   │   │   │   │   │   ├── fr.js
-│   │   │   │   │   │   │   ├── gl.js
-│   │   │   │   │   │   │   ├── he.js
-│   │   │   │   │   │   │   ├── hi.js
-│   │   │   │   │   │   │   ├── hr.js
-│   │   │   │   │   │   │   ├── hsb.js
-│   │   │   │   │   │   │   ├── hu.js
-│   │   │   │   │   │   │   ├── hy.js
-│   │   │   │   │   │   │   ├── id.js
-│   │   │   │   │   │   │   ├── is.js
-│   │   │   │   │   │   │   ├── it.js
-│   │   │   │   │   │   │   ├── ja.js
-│   │   │   │   │   │   │   ├── ka.js
-│   │   │   │   │   │   │   ├── km.js
-│   │   │   │   │   │   │   ├── ko.js
-│   │   │   │   │   │   │   ├── lt.js
-│   │   │   │   │   │   │   ├── lv.js
-│   │   │   │   │   │   │   ├── mk.js
-│   │   │   │   │   │   │   ├── ms.js
-│   │   │   │   │   │   │   ├── nb.js
-│   │   │   │   │   │   │   ├── ne.js
-│   │   │   │   │   │   │   ├── nl.js
-│   │   │   │   │   │   │   ├── pl.js
-│   │   │   │   │   │   │   ├── ps.js
-│   │   │   │   │   │   │   ├── pt-BR.js
-│   │   │   │   │   │   │   ├── pt.js
-│   │   │   │   │   │   │   ├── ro.js
-│   │   │   │   │   │   │   ├── ru.js
-│   │   │   │   │   │   │   ├── sk.js
-│   │   │   │   │   │   │   ├── sl.js
-│   │   │   │   │   │   │   ├── sq.js
-│   │   │   │   │   │   │   ├── sr-Cyrl.js
-│   │   │   │   │   │   │   ├── sr.js
-│   │   │   │   │   │   │   ├── sv.js
-│   │   │   │   │   │   │   ├── th.js
-│   │   │   │   │   │   │   ├── tk.js
-│   │   │   │   │   │   │   ├── tr.js
-│   │   │   │   │   │   │   ├── uk.js
-│   │   │   │   │   │   │   ├── vi.js
-│   │   │   │   │   │   │   ├── zh-CN.js
-│   │   │   │   │   │   │   ├── zh-TW.js
-│   │   │   │   │   │   ├── select2.full.js
-│   │   │   │   │   │   ├── select2.full.min.js
 │   │   │   │   │   ├── xregexp/
 │   │   │   │   │   │   ├── LICENSE.txt
 │   │   │   │   │   │   ├── xregexp.js
@@ -307,32 +180,6 @@ Arborescence du projet :
 │   │   │   ├── style.css
 │   │   ├── dashboard/
 │   │   │   ├── css/
-│   │   │   │   ├── dashboard.css
-│   │   ├── img/
-│   │   │   ├── banner-bg.jpg
-│   │   │   ├── default-profile.png
-│   │   │   ├── empty-cart.svg
-│   │   │   ├── empty-favorites.svg
-│   │   │   ├── empty-notifications.svg
-│   │   │   ├── favicon.ico
-│   │   │   ├── no-addresses.svg
-│   │   │   ├── no-orders.svg
-│   │   │   ├── no-products.svg
-│   │   │   ├── no-reviews.svg
-│   │   │   ├── payment-methods.png
-│   │   │   ├── placeholder.jpg
-│   │   ├── js/
-│   │   │   ├── chart.min.js
-│   │   │   ├── main.js
-│   │   ├── store/
-│   │   │   ├── css/
-│   │   │   │   ├── custom.css
-│   │   │   │   ├── geolocalisation.css
-│   │   │   ├── js/
-│   │   │   │   ├── geolocation.js
-│   │   │   │   ├── image_preview.js
-│   │   │   │   ├── product_detail.js
-│   │   │   │   ├── search.js
 │   ├── store/
 │   │   ├── __init__.py
 │   │   ├── admin.py

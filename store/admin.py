@@ -1,20 +1,26 @@
 from django.contrib import admin
 from .models import (
     Product, Category, Cart, CartItem, Address, ShippingOption, Order, OrderItem, 
-    Favorite, Review, Notification, ProductView, ProductRequest,
-    GuineaRegion, GuineaPrefecture, GuineaQuartier, GuineaAddress, UserLocation, DeliveryLocation
+    Favorite, Review, Notification, ProductView, ProductRequest, Discount,
+    GuineaRegion, GuineaPrefecture, GuineaQuartier, GuineaAddress, UserLocation, 
+    DeliveryLocation, DeliveryProfile, DeliveryRating
 )
-from marketing.admin import admin_site  # Importe admin_site depuis marketing
+from marketing.admin import admin_site
 
-from store.models import Order, Product, Category, Cart, CartItem, Address, ShippingOption, OrderItem, Favorite, Review, Notification, ProductView, ProductRequest, DeliveryProfile, DeliveryRating
-
-
+# Inline pour gérer les réductions associées à un produit
+class DiscountInline(admin.TabularInline):
+    model = Discount
+    extra = 1
+    fields = ['percentage', 'start_date', 'end_date', 'is_active']
+    readonly_fields = ['start_date', 'end_date']
+    can_delete = True
 
 @admin.register(Product, site=admin_site)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'seller', 'category', 'price', 'stock', 'size', 'brand', 'color', 'material']
+    list_display = ['name', 'seller', 'category', 'price', 'stock', 'size', 'brand', 'color', 'material', 'active_discount_percentage']
     list_filter = ['category', 'seller', 'size', 'brand', 'color', 'material']
     search_fields = ['name', 'description', 'brand', 'color', 'material']
+    inlines = [DiscountInline]
     fieldsets = (
         (None, {
             'fields': ('seller', 'category', 'name', 'description', 'price', 'stock')
@@ -25,10 +31,16 @@ class ProductAdmin(admin.ModelAdmin):
         ('Détails supplémentaires', {
             'fields': ('size', 'brand', 'color', 'material')
         }),
-        ('Statut et réduction', {
-            'fields': ('discount_percentage', 'is_sold', 'sold_out')
+        ('Statut', {
+            'fields': ('is_sold', 'sold_out')
         }),
     )
+    readonly_fields = ['active_discount_percentage']
+
+    def active_discount_percentage(self, obj):
+        """Affiche le pourcentage de réduction actif."""
+        return obj.active_discount_percentage
+    active_discount_percentage.short_description = "Pourcentage de réduction actif"
 
 @admin.register(Category, site=admin_site)
 class CategoryAdmin(admin.ModelAdmin):
@@ -57,7 +69,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ['status', 'created_at']
     search_fields = ['id', 'user__username', 'seller__username']
     date_hierarchy = 'created_at'
-    readonly_fields = ['created_at', 'updated_at']  # Ajouté comme champs en lecture seule
+    readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         ('Informations de base', {
             'fields': ('user', 'seller', 'total', 'shipping_address', 'shipping_option', 'status', 'payment_method')

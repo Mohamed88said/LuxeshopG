@@ -16,6 +16,7 @@
     .product-details-extra .detail-item i { margin-right: 0.5rem; color: #666; }
     .seller-reply { margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px; }
     .discount-active { color: #dc3545; font-weight: bold; }
+    .quantity-input { width: 80px; }
 </style>
 {% endblock %}
 
@@ -178,16 +179,19 @@
                 {% else %}
                     <div class="d-flex flex-wrap gap-3 mb-4">
                         {% if user.is_authenticated %}
-                            <button class="btn btn-primary btn-lg px-4 add-to-cart-detail" data-product-id="{{ product.id }}">
-                                <i class="fas fa-cart-plus me-2"></i>Ajouter au panier
-                            </button>
-                            
+                            <form id="add-to-cart-form-{{ product.id }}" action="{% url 'store:add_to_cart' product.id %}" method="post" class="d-flex align-items-center gap-2">
+                                {% csrf_token %}
+                                <input type="number" name="quantity" class="form-control quantity-input" value="1" min="1" max="{{ product.stock }}" required>
+                                <button type="submit" class="btn btn-primary btn-lg px-4 add-to-cart-detail" data-product-id="{{ product.id }}">
+                                    <i class="fas fa-cart-plus me-2"></i>Ajouter au panier
+                                </button>
+                            </form>
+                            <!-- Reste des boutons (favoris, contacter vendeur, etc.) -->
                             <button class="btn btn-outline-danger btn-lg toggle-favorite" data-product-id="{{ product.id }}"
                                     data-is-favorite="{{ is_favorite|yesno:'true,false' }}">
                                 <i class="fas fa-heart me-2 {% if is_favorite %}text-danger{% endif %}"></i>
                                 <span>{% if is_favorite %}Retirer{% else %}Ajouter{% endif %}</span>
                             </button>
-                            
                             {% if user.user_type == 'seller' and product.seller == user and not product.is_sold %}
                                 <a href="{% url 'store:mark_as_sold' product.id %}" class="btn btn-warning btn-lg px-4">
                                     <i class="fas fa-tag me-2"></i>Marquer vendu
@@ -213,7 +217,6 @@
                         {% endif %}
                     </div>
                 {% endif %}
-                
                 <div class="product-meta mt-4 pt-4 border-top">
                     <p class="text-muted mb-1">Catégorie : <a href="{% url 'store:product_list' %}?category={{ product.category }}" class="text-primary">{{ product.category }}</a></p>
                     <p class="text-muted">Vendu par : <a href="{% url 'store:seller_public_profile' product.seller.username %}" class="text-primary">{{ product.seller.username }}</a></p>
@@ -530,34 +533,91 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.add-to-cart-detail').forEach(button => {
-            button.addEventListener('click', function(e) {
+        document.querySelectorAll('.add-to-cart-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const productId = this.getAttribute('data-product-id');
-                const csrfToken = getCookie('csrftoken');
+                const productId = this.querySelector('.add-to-cart-detail').getAttribute('data-product-id');
+                const quantity = this.querySelector('input[name="quantity"]').value;
+                const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+                if (!quantity || quantity <= 0) {
+                    alert('Veuillez sélectionner une quantité valide.');
+                    return;
+                }
+
                 fetch(`/cart/add/${productId}/`, {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `quantity=${encodeURIComponent(quantity)}`,
                     credentials: 'same-origin'
                 })
-                .then(response => response.redirected ? window.location.href = response.url : response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erreur HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    if (data && data.success) {
-                        const icon = this.querySelector('i');
-                        const originalText = this.innerHTML;
-                        this.innerHTML = '<i class="fas fa-check me-2"></i>Ajouté !';
-                        this.classList.remove('btn-primary');
-                        this.classList.add('btn-success');
+                    if (data.success) {
+                        const button = this.querySelector('.add-to-cart-detail');
+                        const icon = button.querySelector('i');
+                        const originalText = button.innerHTML;
+                        button.innerHTML = '<i class="fas fa-check me-2"></i>Ajouté !';
+                        button.classList.remove('btn-primary');
+                        button.classList.add('btn-success');
                         setTimeout(() => {
-                            this.innerHTML = originalText;
-                            this.classList.remove('btn-success');
-                            this.classList.add('btn-primary');
+                            button.innerHTML = originalText;
+                            button.classList.remove('btn-success');
+                            button.classList.add('btn-primary');
                         }, 2000);
                         const cartCount = document.querySelector('.cart-count');
-                        if (cartCount) cartCount.textContent = parseInt(cartCount.textContent) + 1;
-                    } else if (data && data.error) alert(data.error);
+                        if (cartCount) cartCount.textContent = data.cart_count;
+                        if (typeof Toastify !== 'undefined') {
+                            Toastify({
+                                text: data.message,
+                                duration: 3000,
+                                close: true,
+                                gravity: "top",
+                                position: "right",
+                                backgroundColor: "#28a745",
+                            }).showToast();
+                        } else {
+                            alert(data.message);
+                        }
+                    } else {
+                        if (typeof Toastify !== 'undefined') {
+                            Toastify({
+                                text: data.message,
+                                duration: 3000,
+                                close: true,
+                                gravity: "top",
+                                position: "right",
+                                backgroundColor: "#dc3545",
+                            }).showToast();
+                        } else {
+                            alert(data.message);
+                        }
+                    }
                 })
-                .catch(error => { console.error('Erreur:', error); alert('Une erreur est survenue lors de l\'ajout au panier'); });
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    if (typeof Toastify !== 'undefined') {
+                        Toastify({
+                            text: "Erreur lors de l'ajout au panier.",
+                            duration: 3000,
+                            close: true,
+                            gravity: "top",
+                            position: "right",
+                            backgroundColor: "#dc3545",
+                        }).showToast();
+                    } else {
+                        alert('Erreur lors de l\'ajout au panier.');
+                    }
+                });
             });
         });
 

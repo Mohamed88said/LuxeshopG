@@ -6,6 +6,7 @@
 <style>
     .hero-banner { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{% static "img/banner-bg.jpg" %}'); background-size: cover; background-position: center; color: white; padding: 5rem 0; margin-bottom: 2rem; border-radius: var(--rounded-lg); }
     .discount-badge { position: absolute; top: 10px; left: 10px; background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; }
+    .quantity-input { width: 80px; }
 </style>
 {% endblock %}
 
@@ -120,9 +121,25 @@
                         <div class="mt-auto d-flex justify-content-between align-items-center">
                             <a href="{% url 'store:product_detail' product.id %}" class="btn btn-sm btn-outline-primary">Détails</a>
                             {% if user.is_authenticated %}
-                                <button class="btn btn-sm btn-primary add-to-cart" data-product-id="{{ product.id }}">
-                                    <i class="fas fa-cart-plus"></i>
-                                </button>
+                                {% if product.is_sold %}
+                                    <div class="alert alert-danger mt-3">Vendu</div>
+                                {% elif product.is_sold_out %}
+                                    <div class="alert alert-warning mt-3">Rupture de stock</div>
+                                {% else %}
+                                    <form class="add-to-cart-form" action="{% url 'store:add_to_cart' product.id %}" method="post">
+                                        {% csrf_token %}
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input type="number" name="quantity" class="form-control quantity-input" value="1" min="1" max="{{ product.stock }}" required>
+                                            <button type="submit" class="btn btn-sm btn-primary add-to-cart" data-product-id="{{ product.id }}">
+                                                <i class="fas fa-cart-plus"></i>
+                                            </button>
+                                        </div>
+                                    </form>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'accounts:login' %}?next={{ request.path }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                </a>
                             {% endif %}
                         </div>
                     </div>
@@ -186,6 +203,7 @@
 <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script>
 function getCookie(name) {
+    console.log('Raw cookies:', document.cookie); // Journal des cookies bruts
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
@@ -197,6 +215,7 @@ function getCookie(name) {
             }
         }
     }
+    console.log(`Cookie ${name}:`, cookieValue);
     return cookieValue;
 }
 
@@ -235,36 +254,106 @@ listViewBtn.addEventListener('click', function(e) {
 const savedView = localStorage.getItem('productView') || 'grid';
 if (savedView === 'list') listViewBtn.click(); else gridViewBtn.click();
 
-document.querySelectorAll('.add-to-cart').forEach(button => {
-    button.addEventListener('click', function(event) {
-        event.preventDefault();
-        const productId = this.getAttribute('data-product-id');
-        const icon = this.querySelector('i');
+document.querySelectorAll('.add-to-cart-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const productId = this.querySelector('.add-to-cart').getAttribute('data-product-id');
+        const quantity = this.querySelector('input[name="quantity"]').value;
+        const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        console.log('Add to Cart - Product ID:', productId);
+        console.log('Add to Cart - Quantity:', quantity);
+        console.log('Add to Cart - CSRF Token:', csrfToken);
+
+        if (!quantity || quantity <= 0) {
+            Toastify({
+                text: 'Veuillez sélectionner une quantité valide.',
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: { background: "#dc3545" }
+            }).showToast();
+            return;
+        }
+
+        if (!csrfToken) {
+            console.error('Add to Cart - CSRF token manquant');
+            Toastify({
+                text: 'Erreur: Jeton CSRF manquant pour l\'ajout au panier.',
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: { background: "#dc3545" }
+            }).showToast();
+            return;
+        }
 
         fetch(`/cart/add/${productId}/`, {
             method: 'POST',
-            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: ''
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: `quantity=${encodeURIComponent(quantity)}`,
+            credentials: 'same-origin'
         })
-        .then(response => response.redirected ? window.location.href = response.url : response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Erreur HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data && data.success) {
-                icon.classList.remove('fa-cart-plus');
-                icon.classList.add('fa-check');
-                this.classList.add('btn-success');
+            if (data.success) {
+                const button = this.querySelector('.add-to-cart');
+                const icon = button.querySelector('i');
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.classList.add('btn-success');
                 setTimeout(() => {
-                    icon.classList.remove('fa-check');
-                    icon.classList.add('fa-cart-plus');
-                    this.classList.remove('btn-success');
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
                 }, 2000);
                 const cartCount = document.querySelector('.cart-count');
                 if (cartCount && data.cart_count) {
                     cartCount.textContent = data.cart_count;
                     gsap.to(cartCount, { scale: 1.5, duration: 0.3, yoyo: true, repeat: 1 });
                 }
+                Toastify({
+                    text: data.message,
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: { background: "#28a745" }
+                }).showToast();
+            } else {
+                Toastify({
+                    text: data.message || "Erreur lors de l'ajout au panier.",
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: { background: "#dc3545" }
+                }).showToast();
             }
         })
-        .catch(error => { console.error('Erreur:', error); alert('Erreur lors de l\'ajout au panier.'); });
+        .catch(error => {
+            console.error('Add to Cart - Erreur:', error);
+            Toastify({
+                text: `Erreur lors de l'ajout au panier: ${error.message}`,
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: { background: "#dc3545" }
+            }).showToast();
+        });
     });
 });
 
@@ -272,24 +361,56 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
     icon.addEventListener('click', async function(e) {
         e.preventDefault();
         const productId = this.getAttribute('data-product-id');
-        const csrfToken = getCookie('csrftoken');
-        const toggleFavoriteUrl = `{% url 'store:toggle_favorite' 0 %}`.replace('0', productId); // Remplace 0 par productId dynamiquement
+        let csrfToken = getCookie('csrftoken');
+        
+        // Alternative : récupérer le jeton CSRF depuis un formulaire si le cookie est null
+        if (!csrfToken) {
+            const form = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (form) {
+                csrfToken = form.value;
+                console.log('Toggle Favorite - CSRF Token from form:', csrfToken);
+            }
+        }
+
+        const toggleFavoriteUrl = `/products/${productId}/toggle-favorite/`;
+
+        console.log('Toggle Favorite - Product ID:', productId);
+        console.log('Toggle Favorite - CSRF Token:', csrfToken);
+        console.log('Toggle Favorite - URL:', toggleFavoriteUrl);
+
+        if (!csrfToken) {
+            console.error('Toggle Favorite - CSRF token manquant');
+            Toastify({
+                text: 'Erreur: Jeton CSRF manquant pour les favoris.',
+                duration: 3000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: { background: "#dc3545" }
+            }).showToast();
+            return;
+        }
 
         try {
             const response = await fetch(toggleFavoriteUrl, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: '',
                 credentials: 'same-origin'
             });
 
             if (!response.ok) {
-                throw new Error(`Erreur réseau: ${response.status}`);
+                const text = await response.text();
+                throw new Error(`Erreur HTTP ${response.status}: ${text}`);
             }
 
             const data = await response.json();
 
             if (data.status === 'success') {
-                // Met à jour l'icône en fonction de l'action
                 this.classList.toggle('far', data.action === 'removed');
                 this.classList.toggle('fas', data.action === 'added');
                 this.classList.toggle('text-danger', data.action === 'added');
@@ -297,6 +418,7 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
 
                 const newTitle = data.action === 'added' ? 'Favori' : 'Ajouter aux favoris';
                 this.setAttribute('title', newTitle);
+                this.setAttribute('data-bs-toggle', 'tooltip');
 
                 Toastify({
                     text: `Produit ${data.action === 'added' ? 'ajouté aux' : 'retiré des'} favoris`,
@@ -304,17 +426,36 @@ document.querySelectorAll('.favorite-icon').forEach(icon => {
                     close: true,
                     gravity: "top",
                     position: "right",
-                    backgroundColor: data.action === 'added' ? "#28a745" : "#dc3545",
+                    style: { background: data.action === 'added' ? "#28a745" : "#dc3545" }
                 }).showToast();
+
+                const favoriteCount = document.querySelector('.favorite-count');
+                if (favoriteCount && data.favorite_count !== undefined) {
+                    favoriteCount.textContent = data.favorite_count;
+                }
             } else {
-                alert(`Erreur: ${data.message || 'Action non réussie'}`);
+                Toastify({
+                    text: `Erreur: ${data.message || 'Action non réussie'}`,
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: { background: "#dc3545" }
+                }).showToast();
             }
         } catch (error) {
-            console.error("Erreur:", error);
+            console.error('Toggle Favorite - Erreur:', error);
             if (error.message.includes('401')) {
                 window.location.href = '/accounts/login/?next=' + window.location.pathname;
             } else {
-                alert('Une erreur est survenue lors de la mise à jour des favoris.');
+                Toastify({
+                    text: `Erreur lors de la mise à jour des favoris: ${error.message}`,
+                    duration: 3000,
+                    close: true,
+                    gravity: "top",
+                    position: "right",
+                    style: { background: "#dc3545" }
+                }).showToast();
             }
         }
     });

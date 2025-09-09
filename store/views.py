@@ -14,6 +14,8 @@ from django.urls import reverse_lazy, reverse
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from decimal import Decimal
+from django.utils import timezone  # Ajouté
+from django.middleware.csrf import get_token
 import json
 import requests
 
@@ -25,7 +27,7 @@ from .models import (
     Product, Category, Cart, CartItem, Order, OrderItem, Address, ShippingOption,
     Favorite, Review, Notification, ProductView, ProductRequest, Conversation, Message,
     SellerRating, SellerProfile, Subscription, QRDeliveryCode, DeliveryAssignment,
-    DeliveryProfile, DeliveryRating
+    DeliveryProfile
 )
 from .forms import (
     ProductForm, AddressForm, ReviewForm, CartItemForm, ProductRequestForm, ReportForm,
@@ -76,10 +78,18 @@ def product_list(request):
         products = products.filter(category__name=category)
     
     if price_min:
-        products = products.filter(price__gte=price_min)
+        try:
+            price_min = float(price_min)
+            products = products.filter(price__gte=price_min)
+        except (ValueError, TypeError):
+            price_min = None  # Ignorer les valeurs non numériques
     
     if price_max:
-        products = products.filter(price__lte=price_max)
+        try:
+            price_max = float(price_max)
+            products = products.filter(price__lte=price_max)
+        except (ValueError, TypeError):
+            price_max = None  # Ignorer les valeurs non numériques
     
     if size_filter:
         products = products.filter(size=size_filter)
@@ -102,21 +112,23 @@ def product_list(request):
     categories = Category.objects.all()
     product_sizes = Product.SIZE_CHOICES
     
+    # Forcer la génération du cookie CSRF
+    get_token(request)
+    
     context = {
         'page_obj': page_obj,
         'categories': categories,
         'product_sizes': product_sizes,
-        'query': query,
-        'selected_category': category,
-        'price_min': price_min,
-        'price_max': price_max,
-        'size_filter': size_filter,
-        'brand_filter': brand_filter,
-        'color_filter': color_filter,
-        'material_filter': material_filter,
+        'query': query or '',
+        'selected_category': category or '',
+        'price_min': price_min if price_min is not None else '',
+        'price_max': price_max if price_max is not None else '',
+        'size_filter': size_filter or '',
+        'brand_filter': brand_filter or '',
+        'color_filter': color_filter or '',
+        'material_filter': material_filter or '',
     }
     return render(request, 'store/product_list.html', context)
-
 def product_detail(request, product_id):
     """Détail d'un produit"""
     product = get_object_or_404(Product, id=product_id)
@@ -243,34 +255,67 @@ def add_to_cart(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     
     if product.is_sold_out:
-        messages.error(request, "Ce produit n'est plus disponible.")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': "Ce produit est en rupture de stock."
+            }, status=400)
+        messages.error(request, "Ce produit est en rupture de stock.")
+        return redirect('store:product_detail', product_id=product.id)
+    
+    # Récupérer la quantité depuis la requête POST, par défaut 1
+    try:
+        quantity = int(request.POST.get('quantity', 1))
+        if quantity <= 0:
+            raise ValueError("La quantité doit être supérieure à 0.")
+    except (ValueError, TypeError):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': "Quantité invalide."
+            }, status=400)
+        messages.error(request, "Quantité invalide.")
         return redirect('store:product_detail', product_id=product.id)
     
     cart, created = Cart.objects.get_or_create(user=request.user)
     cart_item, created = CartItem.objects.get_or_create(
         cart=cart,
         product=product,
-        defaults={'quantity': 1}
+        defaults={'quantity': quantity}
     )
     
     if not created:
-        if cart_item.quantity < product.stock:
-            cart_item.quantity += 1
+        if cart_item.quantity + quantity <= product.stock:
+            cart_item.quantity += quantity
             cart_item.save()
-            messages.success(request, f"{product.name} ajouté au panier.")
+            message = f"{quantity} x {product.name} ajouté(s) au panier."
         else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': "Stock insuffisant."
+                }, status=400)
             messages.error(request, "Stock insuffisant.")
+            return redirect('store:product_detail', product_id=product.id)
     else:
-        messages.success(request, f"{product.name} ajouté au panier.")
+        if quantity > product.stock:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': "Stock insuffisant."
+                }, status=400)
+            messages.error(request, "Stock insuffisant.")
+            return redirect('store:product_detail', product_id=product.id)
+        message = f"{quantity} x {product.name} ajouté(s) au panier."
     
-    # Retourner JSON pour les requêtes AJAX
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
             'success': True,
             'cart_count': cart.total_items,
-            'message': f"{product.name} ajouté au panier."
+            'message': message
         })
     
+    messages.success(request, message)
     return redirect('store:product_detail', product_id=product.id)
 
 @login_required
@@ -581,6 +626,8 @@ def toggle_favorite(request, product_id):
     """Ajouter/retirer des favoris"""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Méthode non autorisée'})
+    
+    print("Request POST data:", dict(request.POST))  # Journal de débogage
     
     product = get_object_or_404(Product, id=product_id)
     favorite, created = Favorite.objects.get_or_create(
